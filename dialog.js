@@ -13,7 +13,8 @@
 		__scriptTags = /<script(\s|\S)*?\>|\<\/script(\s|\S)*?\>/g,
 		__annotaion = /(\/\*(\s|\S)*?\*\/)|<!-{2,}(\s|\S)*?-{2,}>|^\/\/.*|(\/\/.*)/g,
 		__REGEXP_NUMBER = /[^0-9.]/g,
-		__hasProp = Object.prototype.hasOwnProperty;
+		__hasProp = Object.prototype.hasOwnProperty,
+		__DOMParser = new DOMParser();
 	
 	/**
 	 * [x] get Html, Script
@@ -23,19 +24,9 @@
 	 * [x] destroy
 	 * [x] message
 	 * [x] promise
-	 * [x] 데이터 캐싱
 	 */
 	function Dialog (option) {
 		this.initProps();
-		this.setProps({
-			callee: {
-				create: this.create.bind(this),
-				render: this.render.bind(this),
-				clear: this.clear.bind(this),
-				destroy: this.destroy.bind(this),
-				postMessage: this.postMessage.bind(this),
-			},
-		});
 		this.create(option);
 		return this.callee;
 	}
@@ -47,8 +38,15 @@
 		this.html = null;
 		this.scripts = [];
 		this.callee = Object.create(null);
+		this.scope = {};
 		this.messageStorage = Object.create(null);
 		this.message =	{ on: this.onMessage.bind(this)	};
+	}
+	
+	Dialog.prototype.createMessage = function () {
+		if( !this.isExistMessage() ){
+			this.messageStorage[this.id] = Object.create(null);
+		}
 	}
 	
 	Dialog.prototype.isExistMessage = function () {
@@ -56,16 +54,39 @@
 	}
 	
 	Dialog.prototype.onMessage = function (key, fn) {
-		if( !this.isExistMessage() ){
-			this.messageStorage[this.id] = Object.create(null);
-		}
+		this.createMessage();
 		this.messageStorage[this.id][key] = fn;
 		return this.message;
 	}
 	
+	
+	Dialog.prototype.renderComplete = function (state) {
+		this.scope = {
+			state: state
+		}
+	}
+	
+	Dialog.prototype.renderConstructor = function (fn) {
+		fn(this.renderComplete.bind(this));
+	}
+	
+	Dialog.prototype.runConstructor = function (strDOMSCRIPT, index) {
+		var isRun = false;
+		try {
+			var el = __DOMParser.parseFromString(strDOMSCRIPT, 'application/xml').children[0];
+			if( el.hasAttribute('dialog-type') && el.getAttribute('dialog-type') === 'constructor' ){
+				this.makeFn(strDOMSCRIPT.replace(__scriptTags, ''))(null, this.renderConstructor.bind(this));
+				isRun = true;
+			}
+		} catch(e) {
+			console.error(e.message);
+		}
+		return ( isRun ) ? index : -1;
+	}
+	
 	Dialog.prototype.postMessage = function (key, message) {
 		if( this.isExistMessage() && __hasProp.call(this.messageStorage[this.id], key) ){
-			this.messageStorage[this.id][key](message);
+			this.messageStorage[this.id][key].call(this.scope, message);
 		}
 		return this.callee;
 	}
@@ -84,21 +105,39 @@
 			isDestroy: false,
 			id: option.id,
 			url: option.url,
+			callee: {
+				create: this.create.bind(this),
+				render: this.render.bind(this),
+				clear: this.clear.bind(this),
+				destroy: this.destroy.bind(this),
+				postMessage: this.postMessage.bind(this),
+			},
 		});
 		Promise.then(function (resolve) {
 			
 			_this.getDialog(_this.url, function (strLoadedModule) {
-				var	strDOM = strLoadedModule;
-				var strHTML = strDOM.replace(__allScriptAreas, '');
-				var strSCRIPTS = strDOM.match(__allScriptAreas).map(function (v, i) {
-					return v.replace(__scriptTags, '');
-				});
+				var 
+					index = -1,
+					isRunConstructor = false,
+					strDOM = strLoadedModule,
+					strHTML = strDOM.replace(__allScriptAreas, ''),
+					strSCRIPTS = strDOM.match(__allScriptAreas).map(function (v, i) {
+						if( !isRunConstructor && _this.runConstructor(v, i) === i ){
+							isRunConstructor = true;
+							index = i;
+						}
+						return v.replace(__scriptTags, '');
+					});
+				
+				if(index !== -1){
+					strSCRIPTS.splice(index, 1);
+				}
+				
 				_this.setProps({
 					html: strHTML,
 					scripts: strSCRIPTS,
 				});
-				_this.render();
-			resolve();
+				resolve();
 			});
 		});
 		return _this.callee;
@@ -157,7 +196,7 @@
 	}
 	
 	Dialog.prototype.makeFn = function (script) {
-		return Function('message', script);
+		return Function('message', 'renderConstructor', script);
 	}
 	
 	Dialog.prototype.runScript = function () {
