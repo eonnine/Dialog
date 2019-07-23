@@ -91,9 +91,12 @@
 	}
 	
 	Dialog.prototype.postMessage = function (key, message) {
-		if( this.isExistMessage() && __hasProp.call(this.messageStorage[this.id], key) ){
-			this.messageStorage[this.id][key].call(this.scope, message);
-		}
+		Promise.then('postMessage',function (resolve) {
+			if( this.isExistMessage() && __hasProp.call(this.messageStorage[this.id], key) ){
+				this.messageStorage[this.id][key].call(this.scope, message);
+				resolve();
+			}
+		}.bind(this));
 		return this.callee;
 	}
 	
@@ -119,7 +122,7 @@
 				postMessage: this.postMessage.bind(this),
 			},
 		});
-		Promise.then(function (resolve) {
+		Promise.then('create', function (resolve) {
 			_this.getDialog(_this.url, function (strLoadedModule) {
 				var 
 					index = -1,
@@ -152,7 +155,7 @@
 			return;
 		}
 		_this.clear();
-		Promise.then(function (resolve) {
+		Promise.then('render', function (resolve) {
 			_this.renderHTML();
 			_this.runScript();
 			_this.setSelfToState();
@@ -166,7 +169,7 @@
 		if( _this.isDestroy ){
 			return;
 		}
-		Promise.then(function (resolve) {
+		Promise.then('clear',function (resolve) {
 			if( _this.id !== null ){
 				var el = document.getElementById(_this.id);
 				while ( el.firstChild ) {
@@ -188,7 +191,7 @@
 			return;
 		}
 		_this.clear();
-		Promise.then(function (resolve) {
+		Promise.then('destroy', function (resolve) {
 			_this.initProps();
 			_this.isDestroy = true;
 			resolve();
@@ -246,7 +249,8 @@
 		this.queue = [];
 	}
 	
-	Promise.prototype.then = function (fn) {
+	Promise.prototype.then = function (log, fn) {
+		console.log(log);
 		this.queue.push(fn);
 		this.run();
 	}
