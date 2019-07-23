@@ -14,7 +14,8 @@
 		__annotaion = /(\/\*(\s|\S)*?\*\/)|<!-{2,}(\s|\S)*?-{2,}>|^\/\/.*|(\/\/.*)/g,
 		__REGEXP_NUMBER = /[^0-9.]/g,
 		__hasProp = Object.prototype.hasOwnProperty,
-		__DOMParser = new DOMParser();
+		__DOMParser = new DOMParser(),
+		__cache = Object.create(null);
 	
 	/**
 	 * [x] get Html, Script
@@ -24,6 +25,8 @@
 	 * [x] destroy
 	 * [x] message
 	 * [x] promise
+	 * [x] renderConstructor
+	 * [x] data caching
 	 */
 	function Dialog (option) {
 		this.initProps();
@@ -38,7 +41,7 @@
 		this.html = null;
 		this.scripts = [];
 		this.callee = Object.create(null);
-		this.scope = {};
+		this.scope = { self: undefined, state: {} };
 		this.messageStorage = Object.create(null);
 		this.message =	{ on: this.onMessage.bind(this)	};
 	}
@@ -61,9 +64,7 @@
 	
 	
 	Dialog.prototype.renderComplete = function (state) {
-		this.scope = {
-			state: state
-		}
+		this.scope.state = state;
 	}
 	
 	Dialog.prototype.renderConstructor = function (fn) {
@@ -82,6 +83,11 @@
 			console.error(e.message);
 		}
 		return ( isRun ) ? index : -1;
+	}
+	
+	Dialog.prototype.setSelfToState = function () {
+		var target = document.getElementById(this.id).querySelector('[dialog-root]');
+		this.scope.self = target;
 	}
 	
 	Dialog.prototype.postMessage = function (key, message) {
@@ -152,6 +158,7 @@
 		Promise.then(function (resolve) {
 			_this.renderHTML();
 			_this.runScript();
+			_this.setSelfToState();
 			resolve();
 		});
 		return _this.callee;
@@ -172,6 +179,7 @@
 			if( _this.isExistMessage() ){
 				delete _this.messageStorage[_this.id];
 			}
+			_this.scope.self = undefined;
 			resolve();
 		});
 		return _this.callee;
@@ -207,12 +215,30 @@
 	}
 	
 	Dialog.prototype.getDialog = function (url, fn) {
+		var _this = this;
+		if( _this.hasCache(url) ){
+			fn(_this.getCache(url));
+			return;
+		}
 		var xhr = new XMLHttpRequest();
 		xhr.open('get', url, true);
 		xhr.onload = function (res) {
+			_this.setCache(url, res.target.response);
 			fn(res.target.response);
 		}
 		xhr.send();
+	}
+	
+	Dialog.prototype.hasCache = function (key) {
+		return __hasProp.call(__cache, key);
+	}
+	
+	Dialog.prototype.setCache = function (key, value) {
+		return __cache[key] = value;
+	}
+	
+	Dialog.prototype.getCache = function (key) {
+		return __cache[key];
 	}
 	
 	return Dialog;
