@@ -74,7 +74,7 @@
 	Dialog.prototype.runConstructor = function (strDOMSCRIPT, index) {
 		var isRun = false;
 		try {
-			var el = __DOMParser.parseFromString(strDOMSCRIPT, 'application/xml').children[0];
+			var el = __DOMParser.parseFromString(strDOMSCRIPT, 'application/xml').childNodes[0];
 			if( el.hasAttribute('dialog-type') && el.getAttribute('dialog-type') === 'constructor' ){
 				this.makeFn(strDOMSCRIPT.replace(__scriptTags, ''))(null, this.renderConstructor.bind(this));
 				isRun = true;
@@ -120,7 +120,6 @@
 			},
 		});
 		Promise.then(function (resolve) {
-			
 			_this.getDialog(_this.url, function (strLoadedModule) {
 				var 
 					index = -1,
@@ -134,11 +133,9 @@
 						}
 						return v.replace(__scriptTags, '');
 					});
-				
 				if(index !== -1){
 					strSCRIPTS.splice(index, 1);
 				}
-				
 				_this.setProps({
 					html: strHTML,
 					scripts: strSCRIPTS,
