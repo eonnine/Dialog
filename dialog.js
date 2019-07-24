@@ -224,11 +224,16 @@
 	}
 	
 	Dialog.prototype.copyObject = function (object) {
-		var newObject = {};
-		for(var k in object){
-			newObject[k] = object[k];
+		var result = {};
+		if(typeof object === 'string'){
+			result = object;
+		} else {
+			result = {};
+			for(var k in object){
+				result[k] = object[k];
+			}
 		}
-		return newObject;
+		return result;
 	}
 	
 	Dialog.prototype.setSelfToScope = function (id) {
