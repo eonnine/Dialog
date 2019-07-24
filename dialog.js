@@ -36,68 +36,17 @@
 	
 	Dialog.prototype.initProps = function () {
 		this.isDestroy = false;
-		this.id = null;
 		this.url = null;
 		this.html = null;
-		this.scripts = [];
+		this.scriptFns = [];
+		this.ids = [];
 		this.callee = Object.create(null);
-		this.scope = { self: undefined, state: {} };
-		this.messageStorage = Object.create(null);
+		this.scope = { self: null, state: {} };
 		this.message =	{ on: this.onMessage.bind(this)	};
-	}
-	
-	Dialog.prototype.createMessage = function () {
-		if( !this.isExistMessage() ){
-			this.messageStorage[this.id] = Object.create(null);
-		}
-	}
-	
-	Dialog.prototype.isExistMessage = function () {
-		return __hasProp.call(this.messageStorage, this.id);
-	}
-	
-	Dialog.prototype.onMessage = function (key, fn) {
-		this.createMessage();
-		this.messageStorage[this.id][key] = fn;
-		return this.message;
-	}
-	
-	
-	Dialog.prototype.renderComplete = function (state) {
-		this.scope.state = state;
-	}
-	
-	Dialog.prototype.renderConstructor = function (fn) {
-		fn(this.renderComplete.bind(this));
-	}
-	
-	Dialog.prototype.runConstructor = function (strDOMSCRIPT, index) {
-		var isRun = false;
-		try {
-			var el = __DOMParser.parseFromString(strDOMSCRIPT, 'application/xml').childNodes[0];
-			if( el.hasAttribute('dialog-type') && el.getAttribute('dialog-type') === 'constructor' ){
-				this.makeFn(strDOMSCRIPT.replace(__scriptTags, ''))(null, this.renderConstructor.bind(this));
-				isRun = true;
-			}
-		} catch(e) {
-			console.error(e.message);
-		}
-		return ( isRun ) ? index : -1;
-	}
-	
-	Dialog.prototype.setSelfToState = function () {
-		var target = document.getElementById(this.id).querySelector('[dialog-root]');
-		this.scope.self = target;
-	}
-	
-	Dialog.prototype.postMessage = function (key, message) {
-		Promise.then('postMessage',function (resolve) {
-			if( this.isExistMessage() && __hasProp.call(this.messageStorage[this.id], key) ){
-				this.messageStorage[this.id][key].call(this.scope, message);
-				resolve();
-			}
-		}.bind(this));
-		return this.callee;
+		this.messageStorage = Object.create(null);
+		this.renderParam = {};
+		this.constructorFn = null;
+		this.constructorOption = {};
 	}
 	
 	Dialog.prototype.setProps = function (props) {
@@ -107,111 +56,156 @@
 			}
 		}
 	}
-
+	
+	Dialog.prototype.validator = function (option) {
+		if(option == undefined){
+			throw new SyntaxError('[Dialog] "option" is required ');
+		}
+		/*if(option.id == undefined){
+			throw new SyntaxError('[Dialog] option\'s prop is required: "id" ');
+		}*/
+		if(option.url == undefined){
+			throw new SyntaxError('[Dialog] option\'s prop is required: "url" ');
+		}
+		return true;
+	}
+	
+	Dialog.prototype.setConstructor = function (strSCRIPTNodes) {
+		var 
+			_this=this,
+			el; 
+		strSCRIPTNodes.some(function (strScriptNode, i) {
+			el = __DOMParser.parseFromString(strScriptNode, 'application/xml').childNodes[0];
+			if( el.hasAttribute('dialog-type') && el.getAttribute('dialog-type') === 'constructor' ){
+				_this.constructorFn = _this.makeFn(strScriptNode.replace(__scriptTags, ''));
+				strSCRIPTNodes.splice(i, 1);
+				return true;
+			}
+		});
+	}
+	
 	Dialog.prototype.create = function (option) {
-		var _this = this;
+		this.validator(option);
+		
 		this.setProps({
 			isDestroy: false,
-			id: option.id,
 			url: option.url,
 			callee: {
 				create: this.create.bind(this),
 				render: this.render.bind(this),
 				clear: this.clear.bind(this),
-				destroy: this.destroy.bind(this),
 				postMessage: this.postMessage.bind(this),
+				destroy: this.destroy.bind(this),
 			},
+			constructorOption: ( option.option ) ? this.copyObject(option.option) : {},
 		});
+		
+		var _this = this;
 		Promise.then('create', function (resolve) {
 			_this.getDialog(_this.url, function (strLoadedModule) {
 				var 
-					index = -1,
-					isRunConstructor = false,
 					strDOM = strLoadedModule,
 					strHTML = strDOM.replace(__allScriptAreas, ''),
-					strSCRIPTS = strDOM.match(__allScriptAreas).map(function (v, i) {
-						if( !isRunConstructor && _this.runConstructor(v, i) === i ){
-							isRunConstructor = true;
-							index = i;
-						}
-						return v.replace(__scriptTags, '');
-					});
-				if(index !== -1){
-					strSCRIPTS.splice(index, 1);
-				}
+					strSCRIPTNodes = strDOM.match(__allScriptAreas),
+					fnScripts;
+				
+				_this.setConstructor(strSCRIPTNodes);
+				
+				fnScripts = strSCRIPTNodes.map(function (v, i) {
+					return _this.makeFn(v.replace(__scriptTags, ''));
+				});
+				
 				_this.setProps({
 					html: strHTML,
-					scripts: strSCRIPTS,
+					scriptFns: fnScripts,
 				});
 				resolve();
 			});
 		});
-		return _this.callee;
+		Promise.then('runConstructor', function (resolve) {
+			if( this.constructorFn ){
+				this.constructorFn(null, null, this.renderConstructor.bind(this, resolve));
+			} else {
+				resolve();
+			}
+		}.bind(this));
 	}
 	
-	Dialog.prototype.render = function () {
-		var _this = this;
-		if( _this.isDestroy ){
+	Dialog.prototype.renderConstructor = function (resolve, fn) {
+		fn(this.setStateToScope.bind(this, resolve), this.constructorOption);
+	}
+	
+	Dialog.prototype.render = function (id, param) {
+		if(this.isDestroy){
 			return;
 		}
-		_this.clear();
+		var _this = this;
 		Promise.then('render', function (resolve) {
-			_this.renderHTML();
+			
+			if(_this.ids.indexOf(id) === -1){
+				_this.ids.push(id);
+			}
+			
+			if( param ) {
+				_this.renderParam = param;
+			}
+			_this.renderHTML(id);
+			_this.setSelfToScope(id);
 			_this.runScript();
-			_this.setSelfToState();
 			resolve();
 		});
-		return _this.callee;
+		return this.callee;
 	}
 	
-	Dialog.prototype.clear = function () {
-		var _this = this;
-		if( _this.isDestroy ){
+	Dialog.prototype.clear = function (id) {
+		if(this.isDestroy){
 			return;
 		}
-		Promise.then('clear',function (resolve) {
-			if( _this.id !== null ){
-				var el = document.getElementById(_this.id);
+		var _this = this;
+		Promise.then('clear', function (resolve) {
+			var 
+				arr = ( id ) ? [id] : _this.ids,
+				el;
+			arr.forEach(function (renderId, i) {
+				el = document.getElementById(renderId);
 				while ( el.firstChild ) {
 					el.removeChild(el.firstChild);
 				}
-			}
-			if( _this.isExistMessage() ){
-				delete _this.messageStorage[_this.id];
-			}
-			_this.scope.self = undefined;
+			});
+			_this.ids = arr.filter(function (el, i) {
+				return _this.ids.indexOf(el) === -1;
+			});
 			resolve();
 		});
-		return _this.callee;
 	};
 	
 	Dialog.prototype.destroy = function () {
-		var _this = this;
-		if( _this.isDestroy ){
-			return;
-		}
-		_this.clear();
-		Promise.then('destroy', function (resolve) {
-			_this.initProps();
-			_this.isDestroy = true;
-			resolve();
-		});
+		this.clear();
+		this.initProps();
+		this.isDestroy = true;
 	}
 	
-	Dialog.prototype.renderHTML = function () {
-		var el = document.getElementById(this.id);
+	Dialog.prototype.renderHTML = function (id) {
+		var el = document.getElementById(id);
+		if(el == null){
+			throw new Error('not found element: "' + id + '"');
+		}
 		el.innerHTML = this.html;
 	}
 	
-	Dialog.prototype.makeFn = function (script) {
-		return Function('message', 'renderConstructor', script);
+	Dialog.prototype.runScript = function () {
+		this.scriptFns.forEach(function (fn){
+			fn(this.message, this.renderFn.bind(this));
+		}.bind(this));
 	}
 	
-	Dialog.prototype.runScript = function () {
-		var _this = this;
-		this.scripts.forEach(function (script){
-			_this.makeFn(script)(_this.message);
-		});
+	Dialog.prototype.renderFn = function (fn) {
+		fn.call(this.scope, this.copyObject(this.renderParam));
+		this.renderParam = null;
+	}
+	
+	Dialog.prototype.makeFn = function (script) {
+		return Function('message', 'render', 'renderConstructor', script);
 	}
 	
 	Dialog.prototype.getDialog = function (url, fn) {
@@ -227,6 +221,34 @@
 			fn(res.target.response);
 		}
 		xhr.send();
+	}
+	
+	Dialog.prototype.copyObject = function (object) {
+		var newObject = {};
+		for(var k in object){
+			newObject[k] = object[k];
+		}
+		return newObject;
+	}
+	
+	Dialog.prototype.setSelfToScope = function (id) {
+		this.scope.self = document.getElementById(id).querySelector('[dialog-root]');
+	}
+	
+	Dialog.prototype.setStateToScope = function (resolve, state) {
+		this.scope.state = state;
+		resolve();
+	}
+	
+	Dialog.prototype.onMessage = function (key, fn) {
+		this.messageStorage[key] = fn;
+	}
+	
+	Dialog.prototype.postMessage = function (key, message) {
+		if(this.isDestroy){
+			return;
+		}
+		this.messageStorage[key].call(this.scope, message);
 	}
 	
 	Dialog.prototype.hasCache = function (key) {
@@ -250,7 +272,6 @@
 	}
 	
 	Promise.prototype.then = function (log, fn) {
-		console.log(log);
 		this.queue.push(fn);
 		this.run();
 	}
