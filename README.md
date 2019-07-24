@@ -7,9 +7,9 @@ jsp 모듈화 툴
 -create, destroy, render, clear, onMessage, postMessage 기능 생성
 
 ---
-*2019-07-24*  
+***2019-07-24***  
 -메모리 누수 제거
 
 ---
-*예정*  
+***예정***  
 api document 작성
