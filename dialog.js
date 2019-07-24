@@ -25,7 +25,7 @@
 	 * [x] destroy
 	 * [x] message
 	 * [x] promise
-	 * [x] renderConstructor
+	 * [x] dialogConstructor
 	 * [x] data caching
 	 */
 	function Dialog (option) {
@@ -44,7 +44,7 @@
 		this.scope = { self: null, state: {} };
 		this.message =	{ on: this.onMessage.bind(this)	};
 		this.messageStorage = Object.create(null);
-		this.renderParam = {};
+		this.renderConstructorParam = {};
 		this.constructorFn = null;
 		this.constructorOption = {};
 	}
@@ -124,14 +124,14 @@
 		});
 		Promise.then('runConstructor', function (resolve) {
 			if( this.constructorFn ){
-				this.constructorFn(null, null, this.renderConstructor.bind(this, resolve));
+				this.constructorFn(null, null, this.dialogConstructor.bind(this, resolve));
 			} else {
 				resolve();
 			}
 		}.bind(this));
 	}
 	
-	Dialog.prototype.renderConstructor = function (resolve, fn) {
+	Dialog.prototype.dialogConstructor = function (resolve, fn) {
 		fn(this.setStateToScope.bind(this, resolve), this.constructorOption);
 	}
 	
@@ -147,7 +147,7 @@
 			}
 			
 			if( param ) {
-				_this.renderParam = param;
+				_this.renderConstructorParam = param;
 			}
 			_this.renderHTML(id);
 			_this.setSelfToScope(id);
@@ -195,17 +195,17 @@
 	
 	Dialog.prototype.runScript = function () {
 		this.scriptFns.forEach(function (fn){
-			fn(this.message, this.renderFn.bind(this));
+			fn(this.message, this.renderConstructorFn.bind(this));
 		}.bind(this));
 	}
 	
-	Dialog.prototype.renderFn = function (fn) {
-		fn.call(this.scope, this.copyObject(this.renderParam));
-		this.renderParam = null;
+	Dialog.prototype.renderConstructorFn = function (fn) {
+		fn.call(this.scope, this.copyObject(this.renderConstructorParam));
+		this.renderConstructorParam = null;
 	}
 	
 	Dialog.prototype.makeFn = function (script) {
-		return Function('message', 'render', 'renderConstructor', script);
+		return Function('message', 'renderConstructor', 'dialogConstructor', script);
 	}
 	
 	Dialog.prototype.getDialog = function (url, fn) {
