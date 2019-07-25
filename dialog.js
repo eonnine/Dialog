@@ -9,9 +9,9 @@
 }((function (Promise) { 'use strict'
 	
 	var
-		__allScriptAreas = /<script(\s|\S)*?(\s|\S)*?<\/script(\s|\S)*?>/g,
-		__scriptTags = /<script(\s|\S)*?\>|\<\/script(\s|\S)*?\>/g,
-		__annotaion = /(\/\*(\s|\S)*?\*\/)|<!-{2,}(\s|\S)*?-{2,}>|^\/\/.*|(\/\/.*)/g,
+		__REGEXP_allScriptAreas = /<script(\s|\S)*?(\s|\S)*?<\/script(\s|\S)*?>/g,
+		__REGEXP_scriptTags = /<script(\s|\S)*?\>|\<\/script(\s|\S)*?\>/g,
+		__REGEXP_annotaion = /(\/\*(\s|\S)*?\*\/)|<!-{2,}(\s|\S)*?-{2,}>|^\/\/.*|(\/\/.*)/g,
 		__REGEXP_NUMBER = /[^0-9.]/g,
 		__hasProp = Object.prototype.hasOwnProperty,
 		__DOMParser = new DOMParser(),
@@ -29,6 +29,7 @@
 	 * [x] data caching
 	 */
 	function Dialog (option) {
+		this.createPromise();
 		this.initProps();
 		this.create(option);
 		return this.callee;
@@ -47,6 +48,11 @@
 		this.renderConstructorParam = {};
 		this.constructorFn = null;
 		this.constructorOption = {};
+		this.destroyFn = null;
+	}
+	
+	Dialog.prototype.createPromise = function () {
+		this.Promise = new Promise();
 	}
 	
 	Dialog.prototype.setProps = function (props) {
@@ -75,9 +81,9 @@
 			_this=this,
 			el; 
 		strSCRIPTNodes.some(function (strScriptNode, i) {
-			el = __DOMParser.parseFromString(strScriptNode, 'application/xml').childNodes[0];
+			el = __DOMParser.parseFromString(strScriptNode, 'text/html').getElementsByTagName('script')[0];
 			if( el.hasAttribute('dialog-type') && el.getAttribute('dialog-type') === 'constructor' ){
-				_this.constructorFn = _this.makeFn(strScriptNode.replace(__scriptTags, ''));
+				_this.constructorFn = _this.makeFn(strScriptNode.replace(__REGEXP_scriptTags, ''));
 				strSCRIPTNodes.splice(i, 1);
 				return true;
 			}
@@ -99,20 +105,19 @@
 			},
 			constructorOption: ( option.option ) ? this.copyObject(option.option) : {},
 		});
-		
 		var _this = this;
-		Promise.then('create', function (resolve) {
+		this.Promise.then('create', function (resolve) {
 			_this.getDialog(_this.url, function (strLoadedModule) {
 				var 
-					strDOM = strLoadedModule,
-					strHTML = strDOM.replace(__allScriptAreas, ''),
-					strSCRIPTNodes = strDOM.match(__allScriptAreas),
+					strDOM = strLoadedModule.replace(__REGEXP_annotaion, ''),
+					strHTML = strDOM.replace(__REGEXP_allScriptAreas, ''),
+					strSCRIPTNodes = strDOM.match(__REGEXP_allScriptAreas),
 					fnScripts;
 				
 				_this.setConstructor(strSCRIPTNodes);
 				
 				fnScripts = strSCRIPTNodes.map(function (v, i) {
-					return _this.makeFn(v.replace(__scriptTags, ''));
+					return _this.makeFn(v.replace(__REGEXP_scriptTags, ''));
 				});
 				
 				_this.setProps({
@@ -122,9 +127,9 @@
 				resolve();
 			});
 		});
-		Promise.then('runConstructor', function (resolve) {
+		this.Promise.then('runConstructor', function (resolve) {
 			if( this.constructorFn ){
-				this.constructorFn(null, null, this.dialogConstructor.bind(this, resolve));
+				this.constructorFn(null, null, null, this.dialogConstructor.bind(this, resolve));
 			} else {
 				resolve();
 			}
@@ -141,7 +146,7 @@
 			return;
 		}
 		var _this = this;
-		Promise.then('render', function (resolve) {
+		this.Promise.then('render', function (resolve) {
 			
 			if(_this.ids.indexOf(id) === -1){
 				_this.ids.push(id);
@@ -163,7 +168,7 @@
 			return;
 		}
 		var _this = this;
-		Promise.then('clear', function (resolve) {
+		this.Promise.then('clear', function (resolve) {
 			var 
 				arr = ( id ) ? [id] : _this.ids,
 				el;
@@ -182,6 +187,10 @@
 	};
 	
 	Dialog.prototype.destroy = function () {
+		this.Promise.then('destroy', function (resolve) {
+			this.destroyFn.call(this.scope);
+			resolve();
+		}.bind(this));
 		this.clear();
 		this.initProps();
 		this.isDestroy = true;
@@ -198,7 +207,7 @@
 	
 	Dialog.prototype.runScript = function () {
 		this.scriptFns.forEach(function (fn){
-			fn(this.message, this.renderConstructorFn.bind(this));
+			fn(this.message, this.renderConstructorFn.bind(this), this.renderDestroyFn.bind(this));
 		}.bind(this));
 	}
 	
@@ -207,8 +216,12 @@
 		this.renderConstructorParam = null;
 	}
 	
+	Dialog.prototype.renderDestroyFn = function (fn) {
+		this.destroyFn = fn;
+	}
+	
 	Dialog.prototype.makeFn = function (script) {
-		return Function('message', 'renderConstructor', 'dialogConstructor', script);
+		return Function('message', 'renderConstructor', 'renderDestroy', 'dialogConstructor', script);
 	}
 	
 	Dialog.prototype.getDialog = function (url, fn) {
@@ -221,8 +234,8 @@
 		xhr.open('get', url, true);
 		xhr.onload = function (res) {
 			if(res.target.status === 200){
-				_this.setCache(url, res.target.response);
-				fn(res.target.response);
+				_this.setCache(url, res.target.responseText);
+				fn(res.target.responseText);
 			} else {
 				_this.throwError('error', 'Invalid url: "' + url + '" [' + res.target.status + ']');
 			}
@@ -245,6 +258,7 @@
 	
 	Dialog.prototype.setSelfToScope = function (id) {
 		var self = document.getElementById(id).querySelector('[dialog-root]');
+		this.scope.parent = self.parentNode;
 		this.scope.self = self;
 		this.callee.self = self;
 	}
@@ -262,7 +276,7 @@
 		if(this.isDestroy){
 			return;
 		}
-		Promise.then('postMessege', function (resolve) {
+		this.Promise.then('postMessege', function (resolve) {
 			if( this.messageStorage[key] === undefined ){
 				this.throwError('error', 'not found onMessage: ' + key);
 			}
@@ -311,6 +325,7 @@
 	}
 	
 	Promise.prototype.then = function (log, fn) {
+		//console.log(log);
 		this.queue.push(fn);
 		this.run();
 	}
@@ -329,5 +344,5 @@
 		}.bind(this);
 	}
 	
-	return new Promise();
+	return Promise;
 }())))));
