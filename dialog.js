@@ -129,6 +129,7 @@
 				resolve();
 			}
 		}.bind(this));
+		return this.callee;
 	}
 	
 	Dialog.prototype.dialogConstructor = function (resolve, fn) {
@@ -177,12 +178,14 @@
 			});
 			resolve();
 		});
+		return this.callee;
 	};
 	
 	Dialog.prototype.destroy = function () {
 		this.clear();
 		this.initProps();
 		this.isDestroy = true;
+		return this.callee;
 	}
 	
 	Dialog.prototype.renderHTML = function (id) {
@@ -257,6 +260,7 @@
 			this.messageStorage[key].call(this.scope, message);
 			resolve();
 		}.bind(this));
+		return this.callee;
 	}
 	
 	Dialog.prototype.hasCache = function (key) {
