@@ -253,7 +253,10 @@
 		if(this.isDestroy){
 			return;
 		}
-		this.messageStorage[key].call(this.scope, message);
+		Promise.then('postMessege', function (resolve) {
+			this.messageStorage[key].call(this.scope, message);
+			resolve();
+		}.bind(this));
 	}
 	
 	Dialog.prototype.hasCache = function (key) {
