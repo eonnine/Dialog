@@ -59,13 +59,13 @@
 	
 	Dialog.prototype.validator = function (option) {
 		if(option == undefined){
-			throw new SyntaxError('[Dialog] "option" is required ');
+			this.throwError('syntax', '"option" is required ');
 		}
 		/*if(option.id == undefined){
 			throw new SyntaxError('[Dialog] option\'s prop is required: "id" ');
 		}*/
 		if(option.url == undefined){
-			throw new SyntaxError('[Dialog] option\'s prop is required: "url" ');
+			this.throwError('syntax', 'option\'s prop is required: "url"');
 		}
 		return true;
 	}
@@ -191,7 +191,7 @@
 	Dialog.prototype.renderHTML = function (id) {
 		var el = document.getElementById(id);
 		if(el == null){
-			throw new Error('not found element: "' + id + '"');
+			this.throwError('error', 'not found element: "' + id + '"');
 		}
 		el.innerHTML = this.html;
 	}
@@ -220,8 +220,12 @@
 		var xhr = new XMLHttpRequest();
 		xhr.open('get', url, true);
 		xhr.onload = function (res) {
-			_this.setCache(url, res.target.response);
-			fn(res.target.response);
+			if(res.target.status === 200){
+				_this.setCache(url, res.target.response);
+				fn(res.target.response);
+			} else {
+				_this.throwError('error', 'Invalid url: "' + url + '" [' + res.target.status + ']');
+			}
 		}
 		xhr.send();
 	}
@@ -240,7 +244,9 @@
 	}
 	
 	Dialog.prototype.setSelfToScope = function (id) {
-		this.scope.self = document.getElementById(id).querySelector('[dialog-root]');
+		var self = document.getElementById(id).querySelector('[dialog-root]');
+		this.scope.self = self;
+		this.callee.self = self;
 	}
 	
 	Dialog.prototype.setStateToScope = function (resolve, state) {
@@ -257,6 +263,9 @@
 			return;
 		}
 		Promise.then('postMessege', function (resolve) {
+			if( this.messageStorage[key] === undefined ){
+				this.throwError('error', 'not found onMessage: ' + key);
+			}
 			this.messageStorage[key].call(this.scope, message);
 			resolve();
 		}.bind(this));
@@ -273,6 +282,24 @@
 	
 	Dialog.prototype.getCache = function (key) {
 		return __cache[key];
+	}
+	
+	Dialog.prototype.throwError = function (type, msg) {
+		var errorMsg = '[Dialog] ' + msg; 
+		switch(type){
+		case 'error':
+			throw new Error(errorMsg);
+			break;
+		case 'syntac':
+			throw new SyntaxError(errorMsg);
+			break;
+		case 'type':
+			throw new TypeError(errorMsg);
+			break;
+		case 'range':
+			throw new RangeError(errorMsg);
+			break;
+		}
 	}
 	
 	return Dialog;
