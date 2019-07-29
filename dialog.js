@@ -44,10 +44,10 @@
 		this.message =	{ on: this.onMessage.bind(this)	};
 		this.messageStorage = Object.create(null);
 		this.renderParam = {};
-		this.constructorOption = {};
+		this.createParam = {};
 		this.createHookListener = null;
-		this.clearHookListener = null;
-		this.destroyHookListener = null;
+		this.clearHooks = Object.create(null);
+		this.destroyHooks = Object.create(null);
 	}
 	
 	Dialog.prototype.createPromise = function () {
@@ -90,7 +90,7 @@
 		this.setProps({
 			isDestroy: false,
 			url: ( this.url ) ? this.url : option.url,
-			constructorOption: ( option != null && option.option ) ? this.copyObject(option.option) : {},
+			createParam: ( option != null && option.option ) ? this.copyObject(option.option) : {},
 		});
 		var _this = this;
 		this.Promise.then('create', function (resolve) {
@@ -125,7 +125,7 @@
 	}
 	
 	Dialog.prototype.callCreateHookListener = function (resolve, fn) {
-		fn(this.setStateToScope.bind(this, resolve), this.constructorOption);
+		fn(this.setStateToScope.bind(this, resolve), this.createParam);
 	}
 	
 	Dialog.prototype.render = function (param) {
@@ -133,7 +133,7 @@
 			return;
 		}
 		var _this = this;
-		_this.clear();
+		//_this.clear();
 		this.Promise.then('render', function (resolve) {
 			if( param ) {
 				_this.renderParam = param;
@@ -159,39 +159,45 @@
 			return;
 		}
 		this.Promise.then('clear', function (resolve) {
-			if(this.clearHookListener != null){
-				this.clearHookListener.call(this.scope);
+			if( __hasProp.call(this.clearHooks, this.id) ){
+				this.runHooks(this.clearHooks);
 			}
-			this.clearElement(resolve, [this.id]);
+			this.clearElement(resolve, this.id);
 		}.bind(this));
 		return this.callee;
 	};
 	
-	Dialog.prototype.clearElement = function (resolve, arr) {
+	Dialog.prototype.clearElement = function (resolve, renderId) {
 		var _this = this;
-		var el;
-		arr.forEach(function (renderId, i) {
-			el = document.getElementById(renderId);
-			while ( el.firstChild ) {
-				el.removeChild(el.firstChild);
-			}
-		});
-		_this.ids = arr.filter(function (el, i) {
-			return _this.ids.indexOf(el) === -1;
+		var 	el = document.getElementById(renderId);
+		while ( el.firstChild ) {
+			el.removeChild(el.firstChild);
+		}
+		_this.ids = _this.ids.filter(function (el) {
+			return el.indexOf(renderId) === -1;
 		});
 		resolve();
 	};
 	
 	Dialog.prototype.destroy = function () {
 		this.Promise.then('destroy', function (resolve) {
-			if(this.destroyHookListener != null){
-				this.destroyHookListener.call(this.scope);
+			if( __hasProp.call(this.destroyHooks, this.id) ){
+				this.runHooks(this.destroyHooks);
 			}
 			resolve();
 		}.bind(this));
 		this.clear();
 		this.initProps();
 		this.isDestroy = true;
+	}
+	
+	Dialog.prototype.runHooks = function (hooks){
+		var hookArray = hooks[this.id];
+		if( Array.isArray(hookArray) ){
+			while(hookArray.length > 0){
+				hookArray.shift()();
+			}
+		}
 	}
 	
 	Dialog.prototype.runScript = function () {
@@ -206,11 +212,17 @@
 	}
 	
 	Dialog.prototype.callClearHookListener = function (fn) {
-		this.clearHookListener = fn;
+		if( !__hasProp.call(this.clearHooks, this.id) ){
+			this.clearHooks[this.id] = [];
+		}
+		this.clearHooks[this.id].push(fn.bind(this.copyObject(this.scope)));
 	}
 	
 	Dialog.prototype.callDestroyHookListener = function (fn) {
-		this.destroyHookListener = fn;
+		if( !__hasProp.call(this.destroyHooks, this.id) ){
+			this.destroyHooks[this.id] = [];
+		}
+		this.destroyHooks[this.id].push(fn.bind(this.copyObject(this.scope)));
 	}
 	
 	Dialog.prototype.makeFn = function (script) {
@@ -251,15 +263,17 @@
 	
 	Dialog.prototype.focus = function (id) {
 		
-		var _this = this;
-		this.Promise.then('focus', function (resolve) {
-			if(_this.ids.indexOf(id) === -1){
-				_this.ids.push(id);
-			}
-			_this.id = id;
-			_this.setSelfToScope();
-			resolve();
-		});
+		if( id ){
+			var _this = this;
+			this.Promise.then('focus', function (resolve) {
+				if(_this.ids.indexOf(id) === -1){
+					_this.ids.push(id);
+				}
+				_this.id = id;
+				_this.setSelfToScope();
+				resolve();
+			});
+		}
 		return this.callee;
 	}
 	
