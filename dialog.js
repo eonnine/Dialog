@@ -13,9 +13,9 @@
 		__REGEXP_scriptTags = /<script(\s|\S)*?\>|\<\/script(\s|\S)*?\>/g,
 		__REGEXP_annotaion = /(\/\*(\s|\S)*?\*\/)|<!-{2,}(\s|\S)*?-{2,}>|^\/\/.*|(\/\/.*)/g,
 		__REGEXP_NUMBER = /[^0-9.]/g,
-		__hasProp = Object.prototype.hasOwnProperty,
+		__HasProp = Object.prototype.hasOwnProperty,
 		__DOMParser = new DOMParser(),
-		__cache = Object.create(null);
+		__Cache = Object.create(null);
 	
 	function Dialog (option) {
 		this.validator(option);
@@ -35,12 +35,13 @@
 		this.callee = {
 			create: this.create.bind(this),
 			render: this.render.bind(this),
+			renderScript: this.renderScript.bind(this),
 			clear: this.clear.bind(this),
 			postMessage: this.postMessage.bind(this),
 			destroy: this.destroy.bind(this),
 			focus: this.focus.bind(this),
 		}
-		this.scope = { parent: null, self: null, state: {} };
+		this.scope = { self: null, state: {} };
 		this.message =	{ on: this.onMessage.bind(this)	};
 		this.messageStorage = Object.create(null);
 		this.renderParam = {};
@@ -56,7 +57,7 @@
 	
 	Dialog.prototype.setProps = function (props) {
 		for(var k in props){
-			if( __hasProp.call(this, k) ){
+			if( __HasProp.call(this, k) ){
 				this[k] = props[k];
 			}
 		}
@@ -89,7 +90,7 @@
 	Dialog.prototype.create = function (option) {
 		this.setProps({
 			isDestroy: false,
-			url: ( this.url ) ? this.url : option.url,
+			url: ( this.url ) ? this.url : option.url + '.dtnc' ,
 			createParam: ( option != null && option.option ) ? this.copyObject(option.option) : {},
 		});
 		var _this = this;
@@ -146,6 +147,19 @@
 		return this.callee;
 	}
 	
+	Dialog.prototype.renderScript = function () {
+		if(this.isDestroy){
+			return;
+		}
+		var _this = this;
+		//_this.clear();
+		this.Promise.then('renderScript', function (resolve) {
+			_this.runScript();
+			resolve();
+		});
+		return this.callee;
+	}
+	
 	Dialog.prototype.renderHTML = function () {
 		var el = document.getElementById(this.id);
 		if(el == null){
@@ -159,7 +173,7 @@
 			return;
 		}
 		this.Promise.then('clear', function (resolve) {
-			if( __hasProp.call(this.clearHooks, this.id) ){
+			if( __HasProp.call(this.clearHooks, this.id) ){
 				this.runHooks(this.clearHooks);
 			}
 			this.clearElement(resolve, this.id);
@@ -181,7 +195,7 @@
 	
 	Dialog.prototype.destroy = function () {
 		this.Promise.then('destroy', function (resolve) {
-			if( __hasProp.call(this.destroyHooks, this.id) ){
+			if( __HasProp.call(this.destroyHooks, this.id) ){
 				this.runHooks(this.destroyHooks);
 			}
 			resolve();
@@ -212,14 +226,14 @@
 	}
 	
 	Dialog.prototype.callClearHookListener = function (fn) {
-		if( !__hasProp.call(this.clearHooks, this.id) ){
+		if( !__HasProp.call(this.clearHooks, this.id) ){
 			this.clearHooks[this.id] = [];
 		}
 		this.clearHooks[this.id].push(fn.bind(this.copyObject(this.scope)));
 	}
 	
 	Dialog.prototype.callDestroyHookListener = function (fn) {
-		if( !__hasProp.call(this.destroyHooks, this.id) ){
+		if( !__HasProp.call(this.destroyHooks, this.id) ){
 			this.destroyHooks[this.id] = [];
 		}
 		this.destroyHooks[this.id].push(fn.bind(this.copyObject(this.scope)));
@@ -262,7 +276,6 @@
 	}
 	
 	Dialog.prototype.focus = function (id) {
-		
 		if( id ){
 			var _this = this;
 			this.Promise.then('focus', function (resolve) {
@@ -278,12 +291,10 @@
 	}
 	
 	Dialog.prototype.setSelfToScope = function () {
-		var parentElement = document.getElementById(this.id);
-		if( parentElement == null ){
-			this.throwError('error', 'not found parent element: id is "' + this.id + '"');
+		var self = document.getElementById(this.id);
+		if( self == null ){
+			this.throwError('error', 'not found element: id is "' + this.id + '"');
 		}
-		var self = parentElement.querySelector('[dialog-root]');
-		this.scope.parent = parentElement;
 		this.scope.self = self;
 		this.callee.self = self;
 	}
@@ -302,25 +313,26 @@
 			return;
 		}
 		this.Promise.then('postMessege', function (resolve) {
-			if( this.messageStorage[key] === undefined ){
-				this.throwError('error', 'not found onMessage: ' + key);
+			if( __HasProp.call(this.messageStorage, key) ){
+				this.messageStorage[key].call(this.copyObject(this.scope), message);
+			} else {
+				//this.throwError('error', 'not found onMessage: ' + key);
 			}
-			this.messageStorage[key].call(this.scope, message);
 			resolve();
 		}.bind(this));
 		return this.callee;
 	}
 	
 	Dialog.prototype.hasCache = function (key) {
-		return __hasProp.call(__cache, key);
+		return __HasProp.call(__Cache, key);
 	}
 	
 	Dialog.prototype.setCache = function (key, value) {
-		return __cache[key] = value;
+		return __Cache[key] = value;
 	}
 	
 	Dialog.prototype.getCache = function (key) {
-		return __cache[key];
+		return __Cache[key];
 	}
 	
 	Dialog.prototype.throwError = function (type, msg) {
