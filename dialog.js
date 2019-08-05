@@ -1,3 +1,9 @@
+/**
+ * [Dialog] 
+ * 모듈화 모듈입니다.
+ * Usage:
+ */
+
 (function (factory) {
 	if(typeof define === 'function' && define.amd !== undefined){
 		define(function () {
@@ -9,9 +15,9 @@
 }((function (Promise) { 'use strict'
 	
 	var
-		__REGEXP_allScriptAreas = /<script(\s|\S)*?(\s|\S)*?<\/script(\s|\S)*?>/g,
-		__REGEXP_scriptTags = /<script(\s|\S)*?\>|\<\/script(\s|\S)*?\>/g,
-		__REGEXP_annotaion = /(\/\*(\s|\S)*?\*\/)|<!-{2,}(\s|\S)*?-{2,}>|^\/\/.*|(\/\/.*)/g,
+		__REGEXP_AllScriptAreas = /<script(\s|\S)*?(\s|\S)*?<\/script(\s|\S)*?>/g,
+		__REGEXP_ScriptTags = /<script(\s|\S)*?\>|\<\/script(\s|\S)*?\>/g,
+		__REGEXP_Annotaion = /(\/\*(\s|\S)*?\*\/)|<!-{2,}(\s|\S)*?-{2,}>|^\/\/.*|(\/\/.*)/g,
 		__REGEXP_NUMBER = /[^0-9.]/g,
 		__HasProp = Object.prototype.hasOwnProperty,
 		__DOMParser = new DOMParser(),
@@ -31,7 +37,6 @@
 		this.url = ( this.url ) ? this.url : null;
 		this.html = null;
 		this.scriptFns = [];
-		this.ids = [];
 		this.callee = {
 			create: this.create.bind(this),
 			render: this.render.bind(this),
@@ -40,15 +45,24 @@
 			postMessage: this.postMessage.bind(this),
 			destroy: this.destroy.bind(this),
 			focus: this.focus.bind(this),
-		}
-		this.scope = { self: null, state: {} };
+		};
+		this.scope = { 
+			self: null,
+			state: {},
+			clear: this.clear.bind(this),
+			destroy: this.destroy.bind(this),
+			postMessage: this.postMessage.bind(this)
+		};
 		this.message =	{ on: this.onMessage.bind(this)	};
 		this.messageStorage = Object.create(null);
-		this.renderParam = {};
 		this.createParam = {};
-		this.createHookListener = null;
-		this.clearHooks = Object.create(null);
-		this.destroyHooks = Object.create(null);
+		this.constructorFn = null;
+		this.renderHookListener = null;
+		this.clearHookListener = null;
+		this.destroyHookListener = null;
+		// 전체 clear 등의 기능을 구현할 때를 대비한 변수
+		// render함수를 호출할 때마다 push, clear함수를 호출할 때마다 filter하여 관리함
+		this.ids = [];
 	}
 	
 	Dialog.prototype.createPromise = function () {
@@ -80,7 +94,7 @@
 		strSCRIPTNodes.some(function (strScriptNode, i) {
 			el = __DOMParser.parseFromString(strScriptNode, 'text/html').getElementsByTagName('script')[0];
 			if( el.hasAttribute('dialog-type') && el.getAttribute('dialog-type') === 'constructor' ){
-				_this.createHookListener = _this.makeFn(strScriptNode.replace(__REGEXP_scriptTags, ''));
+				_this.constructorFn = _this.makeFn(strScriptNode.replace(__REGEXP_ScriptTags, ''));
 				strSCRIPTNodes.splice(i, 1);
 				return true;
 			}
@@ -97,27 +111,29 @@
 		this.Promise.then('create', function (resolve) {
 			_this.getDialog(_this.url, function (strLoadedModule) {
 				var 
-					strDOM = strLoadedModule.replace(__REGEXP_annotaion, ''),
-					strHTML = strDOM.replace(__REGEXP_allScriptAreas, ''),
-					strSCRIPTNodes = strDOM.match(__REGEXP_allScriptAreas),
+					strDOM = strLoadedModule.replace(__REGEXP_Annotaion, ''),
+					strHTML = strDOM.replace(__REGEXP_AllScriptAreas, ''),
+					strSCRIPTNodes = strDOM.match(__REGEXP_AllScriptAreas),
 					fnScripts;
 				
 				_this.setConstructor(strSCRIPTNodes);
 				
 				fnScripts = strSCRIPTNodes.map(function (v, i) {
-					return _this.makeFn(v.replace(__REGEXP_scriptTags, ''));
+					return _this.makeFn(v.replace(__REGEXP_ScriptTags, ''));
 				});
 				
 				_this.setProps({
 					html: strHTML,
 					scriptFns: fnScripts,
 				});
+				
 				resolve();
 			});
 		});
 		this.Promise.then('createHook', function (resolve) {
-			if( this.createHookListener ){
-				this.createHookListener(this.callCreateHookListener.bind(this, resolve));
+			_this.runScript();
+			if( this.constructorFn ){
+				this.constructorFn(this.callCreateHookListener.bind(this, resolve));
 			} else {
 				resolve();
 			}
@@ -134,14 +150,14 @@
 			return;
 		}
 		var _this = this;
-		//_this.clear();
+		_this.clear();
 		this.Promise.then('render', function (resolve) {
-			if( param ) {
-				_this.renderParam = param;
-			}
 			_this.renderHTML();
 			_this.setSelfToScope();
-			_this.runScript();
+			if( _this.renderHookListener ){
+				_this.renderHookListener.call(_this.scope, _this.copyObject(param));
+			}
+			//_this.runScript();
 			resolve();
 		});
 		return this.callee;
@@ -152,11 +168,10 @@
 			return;
 		}
 		var _this = this;
-		//_this.clear();
-		this.Promise.then('renderScript', function (resolve) {
-			_this.runScript();
-			resolve();
-		});
+//		this.Promise.then('renderScript', function (resolve) {
+//			_this.runScript();
+//			resolve();
+//		});
 		return this.callee;
 	}
 	
@@ -172,12 +187,14 @@
 		if(this.isDestroy){
 			return;
 		}
-		this.Promise.then('clear', function (resolve) {
-			if( __HasProp.call(this.clearHooks, this.id) ){
-				this.runHooks(this.clearHooks);
-			}
-			this.clearElement(resolve, this.id);
-		}.bind(this));
+		if( this.id ){
+			this.Promise.then('clear', function (resolve) {
+				if( this.clearHookListener ){
+					this.clearHookListener.call(this.scope);
+				}
+				this.clearElement(resolve, this.id);
+			}.bind(this));
+		}
 		return this.callee;
 	};
 	
@@ -195,14 +212,14 @@
 	
 	Dialog.prototype.destroy = function () {
 		this.Promise.then('destroy', function (resolve) {
-			if( __HasProp.call(this.destroyHooks, this.id) ){
-				this.runHooks(this.destroyHooks);
+			if( this.destroyHookListener ){
+				this.destroyHookListener.call(this.scope);
 			}
+			this.clear();
+			this.initProps();
+			this.isDestroy = true;
 			resolve();
 		}.bind(this));
-		this.clear();
-		this.initProps();
-		this.isDestroy = true;
 	}
 	
 	Dialog.prototype.runHooks = function (hooks){
@@ -216,27 +233,20 @@
 	
 	Dialog.prototype.runScript = function () {
 		this.scriptFns.forEach(function (fn){
-			fn(null, this.message, this.callRenderHookListener.bind(this), this.callClearHookListener.bind(this), this.callDestroyHookListener.bind(this));
+			fn(null, this.message, this.setRenderHookListener.bind(this), this.setClearHookListener.bind(this), this.setDestroyHookListener.bind(this));
 		}.bind(this));
 	}
 	
-	Dialog.prototype.callRenderHookListener = function (fn) {
-		fn.call(this.scope, this.copyObject(this.renderParam));
-		this.renderParam = null;
+	Dialog.prototype.setRenderHookListener = function (fn) {
+		this.renderHookListener = fn;
 	}
 	
-	Dialog.prototype.callClearHookListener = function (fn) {
-		if( !__HasProp.call(this.clearHooks, this.id) ){
-			this.clearHooks[this.id] = [];
-		}
-		this.clearHooks[this.id].push(fn.bind(this.copyObject(this.scope)));
+	Dialog.prototype.setClearHookListener = function (fn) {
+		this.clearHookListener = fn;
 	}
 	
-	Dialog.prototype.callDestroyHookListener = function (fn) {
-		if( !__HasProp.call(this.destroyHooks, this.id) ){
-			this.destroyHooks[this.id] = [];
-		}
-		this.destroyHooks[this.id].push(fn.bind(this.copyObject(this.scope)));
+	Dialog.prototype.setDestroyHookListener = function (fn) {
+		this.destroyHookListener = fn;
 	}
 	
 	Dialog.prototype.makeFn = function (script) {
