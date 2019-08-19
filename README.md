@@ -4,7 +4,7 @@ jsp 모듈화 툴
 ```javascript
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 
-<div>팝업같은 경우 여기에 내용 작성하시면 됩니다.</div>
+<div>Content</div>
 
 <script dialog-type="constructor">
 /**
@@ -24,80 +24,80 @@ jsp 모듈화 툴
  두 번쨰 인자는 DialogJs를 이용해 호출할 때 임의로 넘겨주는 Option 파라미터입니다.
  
  아래는 예시입니다.
- 공통 콤보박스에서 사용한 코드입니다. ( ./form/Combo.jsp )
+ 공통 콤보박스를 구성할 때 사용한 코드입니다.
 */
 
-	// Combo Dialog 호출 부분, Dialog 객체가 생성되며 url 경로의 파일에 생성자 Script가 정의되어 있다면 실행됩니다.
-	var NotCommonCombo = new Dialog({
-		url: '/components/form/Combo',
-		option: {
-			commonCombo: false 
-		} 
-	});
+// Combo Dialog 호출 부분, Dialog 객체가 생성되며 url 경로의 파일에 생성자 Script가 정의되어 있다면 실행됩니다.
+var NotCommonCombo = new Dialog({
+	url: '/components/form/Combo',
+	option: {
+		commonCombo: false 
+	} 
+});
 
  
-	// Combo Dialog 생성자 Script 부분
-	// 생성자를 정의할 때는 Dialog$Create의 setStateResolve 함수가 반드시 호출되어야 합니다.
-	Dialog$Create(function (setStateResolve, option) {
-		if( option.commonCombo !== false ){
-			Util.ajaxJsonParam('/scm/getCommonCode.dtnc', null, null, function (response) {
-				
-				// 공용 데이터를 세팅, 생성자 Script 실행 완료
-				setStateResolve({ 
-					comboDataObject: response.data.reduce(groupByReducer, {}),
-					loadedCombo: {},
-				});
-			});
-		} else {
-			
+// Combo Dialog 생성자 Script 부분
+// 생성자를 정의할 때는 Dialog$Create의 setStateResolve 함수가 반드시 호출되어야 합니다.
+Dialog$Create(function (setStateResolve, option) {
+	if( option.commonCombo !== false ){
+		Util.ajaxJsonParam('/scm/getCommonCode.dtnc', null, null, function (response) {
+
 			// 공용 데이터를 세팅, 생성자 Script 실행 완료
-			setStateResolve({
-				comboDataObject: {},
+			setStateResolve({ 
+				comboDataObject: response.data.reduce(groupByReducer, {}),
 				loadedCombo: {},
 			});
-		}
-	});
-	
-	function groupByReducer (acc, crrObj) {
-		if( !acc.hasOwnProperty(crrObj.hirCd) ){
-			acc[crrObj.hirCd] = [];
-		}
-		acc[crrObj.hirCd].push({
-			key: crrObj.key,
-			value: crrObj.value
 		});
-		return acc;
+	} else {
+
+		// 공용 데이터를 세팅, 생성자 Script 실행 완료
+		setStateResolve({
+			comboDataObject: {},
+			loadedCombo: {},
+		});
 	}
+});
+
+function groupByReducer (acc, crrObj) {
+	if( !acc.hasOwnProperty(crrObj.hirCd) ){
+		acc[crrObj.hirCd] = [];
+	}
+	acc[crrObj.hirCd].push({
+		key: crrObj.key,
+		value: crrObj.value
+	});
+	return acc;
+}
 </script>
 <script>
 /**
-	메인 script 영역입니다.
-	
-	Dialog$Render, Dialog$Clear, Dialog$Destroy 함수가 제공되며
-	각 Dialog 객체의 render, clear, destroy 함수들이 실행될 때 호출될 콜백 함수들을 정의할 수 있습니다.
-	
-	아래는 예시입니다.
+메인 script 영역입니다.
+
+Dialog$Render, Dialog$Clear, Dialog$Destroy 함수가 제공되며
+각 Dialog 객체의 render, clear, destroy 함수들이 실행될 때 호출될 콜백 함수들을 정의할 수 있습니다.
+
+아래는 예시입니다.
 */
 
-	// 콤보박스 render 훅 정의 부분
-	Dialog$Render(function (props) {
-		console.log('Call combo render!');
-		console.log(props.type);
-		console.log(props.code);
-		console.log(this.self);
-		console.log(this.state);
-	});
-	
-	// Dialog 객체의 render 함수 실행 부분
-	var Combo = new Dialog({ url: '/components/form/Combo' });
-	Combo('콤보박스를 세팅할 SelectBox의 Id').render({ type: 'common', code: 'P01' }); 
-	/** [console]
-		Call combo render!
-		common
-		P01
-		Combo가 세팅된 Element (= document.getElementById('콤보박스를 세팅할 SelectBox의 Id') )
-		{ comboDataObject: {...}, 	loadedCombo: {...} } (= 생성자에서 setStateResolve 함수로 정의한 공용 데이터 )
-	*/
+// 콤보박스 render 훅 정의 부분
+Dialog$Render(function (props) {
+	console.log('Call combo render!');
+	console.log(props.type);
+	console.log(props.code);
+	console.log(this.self);
+	console.log(this.state);
+});
+
+// Dialog 객체의 render 함수 실행 부분
+var Combo = new Dialog({ url: '/components/form/Combo' });
+Combo('콤보박스를 세팅할 SelectBox의 Id').render({ type: 'common', code: 'P01' }); 
+/** [console]
+	Call combo render!
+	common
+	P01
+	Combo가 세팅된 Element (= document.getElementById('콤보박스를 세팅할 SelectBox의 Id') )
+	{ comboDataObject: {...}, 	loadedCombo: {...} } (= 생성자에서 setStateResolve 함수로 정의한 공용 데이터 )
+*/
 	
 </script>
 ```
