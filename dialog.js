@@ -1,7 +1,7 @@
 /**
  * [Dialog] 
- * 모듈화 모듈입니다.
- * Usage:
+ * 모듈화 툴입니다.
+ * 이 모듈은 Promise 방식으로 처리됩니다.
  */
 
 (function (factory) {
@@ -15,10 +15,10 @@
 }((function (Promise) { 'use strict'
 	
 	var
+		__UrlPostFix = '.dtnc',
 		__REGEXP_AllScriptAreas = /<script(\s|\S)*?(\s|\S)*?<\/script(\s|\S)*?>/g,
 		__REGEXP_ScriptTags = /<script(\s|\S)*?\>|\<\/script(\s|\S)*?\>/g,
 		__REGEXP_Annotaion = /(\/\*(\s|\S)*?\*\/)|<!-{2,}(\s|\S)*?-{2,}>|^\/\/.*|(\/\/.*)/g,
-		__REGEXP_NUMBER = /[^0-9.]/g,
 		__HasProp = Object.prototype.hasOwnProperty,
 		__DOMParser = new DOMParser(),
 		__Cache = Object.create(null);
@@ -61,7 +61,8 @@
 		this.clearHookListener = null;
 		this.destroyHookListener = null;
 		// 전체 clear 등의 기능을 구현할 때를 대비한 변수
-		// render함수를 호출할 때마다 push, clear함수를 호출할 때마다 filter하여 관리함
+		// render함수를 호출할 때마다 push 
+		// clear함수를 호출할 때마다 filter하여 관리함
 		this.ids = [];
 	}
 	
@@ -104,7 +105,7 @@
 	Dialog.prototype.create = function (option) {
 		this.setProps({
 			isDestroy: false,
-			url: ( this.url ) ? this.url : option.url + '.dtnc' ,
+			url: ( this.url ) ? this.url : option.url + __UrlPostFix,
 			createParam: ( option != null && option.option ) ? this.copyObject(option.option) : {},
 		});
 		var _this = this;
@@ -285,6 +286,12 @@
 		return result;
 	}
 	
+	/**
+	 * 현재 Dialog 객체가 가리키고 있는 대상을 id에 해당하는 요소로 변경.
+	 * render, clear, destroy 등 메소드의 실행은 focus된 대상을 타겟으로 실행됨.
+	 * @param id Dialog 객체가 생성된 요소의 id
+	 * @returns Dialog의 callee 객체
+	 */
 	Dialog.prototype.focus = function (id) {
 		if( id ){
 			var _this = this;
