@@ -10,7 +10,7 @@
 			return factory;
 		});
 	} else {
-		this['Dialog'] = factory;
+		window['Dialog'] = factory;
 	}
 }((function (Promise) { 'use strict'
 	
