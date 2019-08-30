@@ -44,6 +44,7 @@ define(function () {
 			strSCRIPTNodes.forEach(function (v, i) {
 				_this.makeFn(v.replace(__REGEXP_ScriptTags, ''))({ on: _this.createOnFn(), emit: _this.createEmitFn() });
 			});
+			
 		});
 	}
 	
