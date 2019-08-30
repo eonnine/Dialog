@@ -1,6 +1,9 @@
 # Dialog  
 jsp 모듈화 툴  
 
+*2019-08-30*
+Promise 방식 삭제
+
 ```javascript
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 
