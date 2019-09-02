@@ -1,7 +1,12 @@
-/**
- * 사용법 :  
- */
-define(function () {
+(function (factory) {
+	if(typeof define !== 'undefined' && define.amd){
+		define(function () {
+			return factory();
+		});
+	} else {
+		window['Dialog'] = factory();
+	}
+}(function () { 'use strict'
 	var
 	__UrlPostFix = '.dtnc',
 	__REGEXP_ScriptTags = /<script(\s|\S)*?\>|\<\/script(\s|\S)*?\>/g,
@@ -122,4 +127,4 @@ define(function () {
 	}
 	
 	return Dialog;
-});
+}));
