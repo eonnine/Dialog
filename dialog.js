@@ -27,6 +27,14 @@ define(function () {
 		this.callee = {
 			emit: this.createEmitFn()
 		};
+		
+		var descriptor = {
+			configurable: false,
+			enumerable: false,
+			writable: false
+		};
+		// property 변경이나 재할당 불가 처리
+		Object.defineProperties(this.scope, { 'on': descriptor, 'emit': descriptor });
 	}
 	
 	Dialog.prototype.validator = function (url) {
@@ -79,7 +87,7 @@ define(function () {
 		xhr.open('get', url, true);
 		xhr.onload = function (res) {
 			if(res.target.status === 200){
-				//_this.setCache(url, res.target.responseText);
+				_this.setCache(url, res.target.responseText);
 				fn(res.target.responseText);
 			} else {
 				_this.throwError('error', 'Invalid url: "' + url + '" [' + res.target.status + ']');
