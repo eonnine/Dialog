@@ -51,20 +51,19 @@ new Dialog('불러올 jsp url')
 });
 
 
----
-
+---  
 ***2019-07-23***  
--최초 커밋
--create, destroy, render, clear, onMessage, postMessage, dialogConstructor, renderConstructor 기능 생성
+-최초 커밋  
+-create, destroy, render, clear, onMessage, postMessage, dialogConstructor, renderConstructor 기능 생성  
 
----
+---  
 ***2019-07-24***  
--메모리 누수 제거
+-메모리 누수 제거  
 
----
-***2019-08-30***
--Promise 방식 제거, Message 기능을 제외한 모든 기능 삭제
+---  
+***2019-08-30***  
+-Promise 방식 제거, Message 기능을 제외한 모든 기능 삭제  
 
 ---  
 ***2019-09-16***  
--load 기능 추가.
+-load 기능 추가.  
