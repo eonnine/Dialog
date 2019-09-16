@@ -52,7 +52,6 @@ new Dialog('불러올 jsp url')
 
 
 ---
-
 ***2019-07-23***  
 -최초 커밋
 -create, destroy, render, clear, onMessage, postMessage, dialogConstructor, renderConstructor 기능 생성
