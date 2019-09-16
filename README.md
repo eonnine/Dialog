@@ -4,9 +4,9 @@
 Promise 방식 삭제, Create, Clear, Destory 등 Hook 삭제, 코드 간소화
 
 ```javascript
-/**
+/*
  Dialog로 호출한 페이지에서는 Message 객체와 Dialog 객체를 사용할 수 있습니다.
- @Message 객체는 JS Object 아래와 같이 구성되어있습니다.
+ Message 객체는 JS Object 아래와 같이 구성되어있습니다.
  
  Message = {
    on: function // 메세지 리스너 함수
@@ -15,7 +15,7 @@ Promise 방식 삭제, Create, Clear, Destory 등 Hook 삭제, 코드 간소화
 */
 
 
-/** 
+/*
 *  on 사용법
 */
 Message.on('sample', function (param) {
@@ -23,7 +23,7 @@ Message.on('sample', function (param) {
 });
 
 
-/**
+/*
 *  emit 사용법
 *  팝업 호출 부분, Dialog 객체가 생성되며 url 경로의 파일이 로드됩니다. 스크립트도 이때 실행됩니다.
 */
@@ -32,8 +32,8 @@ var dialog = new Dialog('불러올 jsp url');
 dialog.emit('sample', 'parameter'); //  console => 'This is Sample Message', 'parameter'
 
 
-@Dialog 객체는 아래와 같이 구성되어 있습니다.
-/**
+/*
+*  Dialog 객체는 아래와 같이 구성되어 있습니다.
 *  load 사용법
 */
 
