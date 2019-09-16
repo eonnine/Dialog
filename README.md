@@ -66,4 +66,4 @@ new Dialog('불러올 jsp url')
 
 ---  
 ***2019-09-16***  
--LazyLoad 기능 추가.
+-load, setLoadParam, onLoad 기능 추가.
